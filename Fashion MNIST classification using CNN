@@ -1,0 +1,100 @@
+import tensorflow_datasets as tfds
+import tensorflow as tf
+
+#print(tfds.list_builders())
+dataset, info = tfds.load('fashion_mnist', as_supervised = True, with_info = True)
+dataset_test, dataset_train = dataset['test'], dataset['train']
+print(info)
+
+def convert_types(image, label):
+    image = tf.cast(image, tf.float32)
+    image /= 255
+    return image, label
+
+batch_size = 32
+
+dataset_train = dataset_train.map(convert_types).shuffle(10000).batch(batch_size)
+dataset_test = dataset_test.map(convert_types).batch(batch_size)
+
+from tensorflow.keras.layers import Conv2D, Flatten, Dense, BatchNormalization, Dropout, Activation, MaxPool2D, GlobalAveragePooling2D
+from tensorflow.keras import Model
+
+class CNNModel(Model):
+    def __init__(self):
+        super(CNNModel, self).__init__()
+        drop_rate = 0.5
+        
+        self._layers = ([
+            Conv2D(32, 3), # 28, 28, 1 -> 26, 26, 32
+            BatchNormalization(),
+            Activation(tf.nn.relu),
+            Conv2D(64, 3), # 26, 26, 32 -> 24, 24, 64
+            BatchNormalization(),
+            Activation(tf.nn.relu),
+            MaxPool2D(), # 24, 24, 64 -> 12, 12, 64
+            Conv2D(128, 3), # 12, 12, 64 -> 10, 10, 128
+            BatchNormalization(),
+            Activation(tf.nn.relu),
+            Conv2D(256, 3), # 10, 10, 128 -> 8, 8, 256
+            BatchNormalization(),
+            Activation(tf.nn.relu),
+            MaxPool2D(), # 8, 8, 256 -> 4, 4, 256
+            Flatten(), # 4, 4, 256 -> 4096
+            Dense(256), # 4096 -> 256
+            BatchNormalization(),
+            Dropout(drop_rate),
+            Activation(tf.nn.relu),
+            Dense(10, activation = 'softmax') # 256 -> 10                        
+        ])                
+        
+    def call(self, x):
+        for layer in self._layers:
+            x = layer(x)
+        return x
+       
+    
+model = CNNModel()
+
+loss_object = tf.keras.losses.SparseCategoricalCrossentropy()
+optimizer = tf.keras.optimizers.Adam()
+
+train_loss = tf.keras.metrics.Mean(name = 'train_loss')
+train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name = 'train_accuracy')
+
+test_loss = tf.keras.metrics.Mean(name = 'test_loss')
+test_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name = 'test_accuracy')
+
+@tf.function
+def train_step(image, label):
+    with tf.GradientTape() as tape:
+        predictions = model(image)
+        loss = loss_object(label, predictions)
+    gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+    
+    train_loss(loss)
+    train_accuracy(label, predictions)
+        
+@tf.function
+def test_step(image, label):
+    predictions = model(image)
+    loss = loss_object(label, predictions)
+    
+    test_loss(loss)
+    test_accuracy(label, predictions)
+    
+    import time
+
+num_epoch = 10
+start_time = time.time()
+
+for epoch in range(num_epoch):
+    for image, label in dataset_train:
+        train_step(image, label)
+        
+    for test_image, test_label in dataset_test:
+        test_step(test_image, test_label)
+        
+    template = 'Epoch {}, Loss: {}, Accuracy: {}, Test Loss: {}, Test Accuracy: {}, spent_time: {} min'
+    spent_time = time.time() - start_time
+    print(template.format(epoch + 1, train_loss.result(), train_accuracy.result() * 100, test_loss.result(), test_accuracy.result() * 100, spent_time / 60))
