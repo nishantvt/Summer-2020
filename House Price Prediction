@@ -1,0 +1,111 @@
+
+
+import tensorflow as tf
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import math
+
+# Plot the house size vs price
+def my_scatter_plot(x, y):
+    plt.scatter(x, y)
+    plt.plot(x, pred)
+    plt.ylabel("Price")
+    plt.xlabel("Size")
+
+# Plot the house size vs price along with Regression line
+def my_combined_plot(x, y, pred):
+    plt.scatter(x, y)
+    plt.plot(x, pred)
+    plt.ylabel("Price")
+    plt.xlabel("Size")
+    
+    num_house = 160
+np.random.seed(42)
+house_size = np.random.randint(low=1000, high=2000, size = num_house)
+
+# Generating House Prices with random noise added
+np.random.seed(42)
+house_price = house_size*100 + np.random.randint(low=20000, high=70000, size = num_house)
+
+# Plot the house size vs price
+plt.plot(house_size, house_price, "bx")
+plt.ylabel("Price")
+plt.xlabel("Size")
+
+
+def normalize(array):
+    return (array - array.mean())/array.std()
+
+
+# Train Test Split
+# Defining train data as 75% of total data and 30% as test data
+
+num_train = int(num_house*0.75)
+
+train_house_size = np.asarray(house_size[:num_train])
+train_price = np.asarray(house_price[:num_train])
+
+train_house_size = normalize(train_house_size)
+train_price = normalize(train_price)
+
+test_house_size = np.asarray(house_size[num_train:])
+test_price = np.asarray(house_price[num_train:])
+
+test_house_size = normalize(test_house_size)
+
+# Defining Placeholders to provide input data
+tf_house_size = tf.placeholder("float", name="house_size")
+tf_price = tf.placeholder("float", name="price")
+
+# Defining paramters to be trained
+tf_size_factor = tf.Variable(np.random.randn(), "size_factor")
+tf_price_offset = tf.Variable(np.random.randn(), "price_offset")
+
+
+# Defining Inference function
+tf_price_pred = tf.add(tf.multiply(tf_house_size, tf_size_factor), tf_price_offset)
+
+# Defining Mean Square Error
+tf_cost = tf.reduce_sum(tf.pow(tf_price_pred - tf_price, 2))/(2*num_train)
+
+# Gradient Descent
+learning_rate = 0.1
+optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(tf_cost)
+
+pred = []
+
+# Initilizing Variables
+init = tf.global_variables_initializer()
+with tf.Session() as sess:
+    sess.run(init)
+
+    for x in train_house_size:
+        c = sess.run(tf_price_pred, feed_dict={tf_house_size: x})
+        pred += [c]        
+
+print("Testing Completed!")
+
+my_combined_plot(train_house_size, train_price, pred)
+test_price = normalize(test_price)
+
+print(train_house_size.shape, train_price.shape)
+print(test_house_size.shape, test_price.shape)
+---------------------------------------------------------------------------------------------------------------------------------------
+
+# Plot Traing Curve
+plt.plot(list(range(1,101)), cost)
+plt.ylabel("Cost")
+plt.xlabel("Epoch")
+
+# Plot the house size vs price
+plt.scatter(train_house_size, train_price)
+plt.plot(train_house_size, pred)
+plt.ylabel("Price")
+plt.xlabel("Size")
+
+# Plot the house size vs price
+plt.scatter(test_house_size, test_price)
+plt.plot(test_house_size, test_pred)
+plt.ylabel("Price")
+plt.xlabel("Size")
