@@ -22,7 +22,7 @@ from tensorflow.keras import Model
 class CNNModel(Model):
     def __init__(self):
         super(CNNModel, self).__init__()
-        drop_rate = 0.5
+        drop_rate = .5
         
         self._layers = ([
             Conv2D(32, 3), # 28, 28, 1 -> 26, 26, 32
